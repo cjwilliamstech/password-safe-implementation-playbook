@@ -1,0 +1,9 @@
+# Prevent accidental commits of real environment data, secrets, or working exports
+*.env
+*secrets*
+*credentials*
+*.csv
+!templates/*example*.csv
+.DS_Store
+*.log
+/local-notes/
