@@ -25,7 +25,8 @@ the thing I wish I'd had on day one of the next implementation.
 |---|---|
 | [`docs/`](docs/) | Narrative lessons learned, architecture decisions and rationale, key concepts, and a glossary of terms that trip people up |
 | [`checklists/`](checklists/) | Reusable, fill-in-the-blank checklists for each phase of a deployment |
-| [`templates/`](templates/) | Generic reference docs and scripts (firewall rules, Smart Rule examples, functional account setup, AD group mapping, ADFS/SAML troubleshooting, bulk import script) |
+| [`templates/`](templates/) | Generic reference docs (firewall rules, Smart Rule examples, functional account setup, AD group mapping, ADFS/SAML troubleshooting) |
+| [`scripts/`](scripts/) | Working automation, e.g. [`Import-SecretsSafeCredentials.ps1`](scripts/Import-SecretsSafeCredentials.ps1) — bulk-imports a legacy shared-credentials export into Secrets Safe via the REST API (the web UI's CSV importer only supports personal folders, not team Safes) |
 | [`runbooks/`](runbooks/) | Step-by-step procedures for specific high-value workflows (legacy platform migration, break-glass access) |
 
 ## How to use this
@@ -34,7 +35,8 @@ the thing I wish I'd had on day one of the next implementation.
 2. Read [`docs/04-architecture-decisions.md`](docs/04-architecture-decisions.md) for the design patterns and the reasoning behind them (functional account model, OU structure, the three-tier Smart Rule model, Secrets Safe governance).
 3. Pull the relevant checklist from `checklists/` when you kick off the equivalent phase in your own project.
 4. Copy templates from `templates/` and fill in your environment's specifics locally — **do not commit filled-in versions with real values to a public repo.**
-5. Reference `docs/03-glossary.md` any time a term (Smart Rule, Smart Group, Address Group, Safe, Secrets Safe, functional account) is ambiguous.
+5. See [`scripts/README.md`](scripts/README.md) before running the bulk import script — it documents every parameter, the CSV column mapping, and the placeholders you need to update for your environment.
+6. Reference `docs/03-glossary.md` any time a term (Smart Rule, Smart Group, Address Group, Safe, Secrets Safe, functional account) is ambiguous.
 
 ## Scope covered
 
