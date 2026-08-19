@@ -134,10 +134,32 @@ count.
   (there's no Folder ID to target in dry-run) — it reports what *would* happen at the
   Safe level, then lists rows as `WhatIf` rather than simulating each API call.
 
+## Design background
+
+This script's approach — sign in once and reuse the session, resolve/auto-create the
+target Safe, `?version=3.1` with a proper `Owners` collection on secret creation, sign
+out in a `finally` block — was validated against a working API proof-of-concept before
+being built out into a full script. See
+[`docs/05-api-authentication-and-session-mechanics.md`](../docs/05-api-authentication-and-session-mechanics.md)
+for the underlying auth/session mechanics, the most common 401 root cause (API
+registration not assigned to the `runas` user's group — easy to mistake for a bad key),
+and the owner-schema requirements this script relies on.
+
+**Alternative considered:** the API also exposes a native bulk endpoint,
+`POST /secrets-safe/folders/{folderId}/upload` (`multipart/form-data`, returns
+`totalNumber`/`successfulImport`/line-level errors). This script uses row-by-row
+creation instead, which trades some request volume for finer control over per-row
+owner assignment, Safe-routing logic, and error handling than the native upload
+endpoint offers.
+
 ## Related repo docs
 
 - [`docs/04-architecture-decisions.md`](../docs/04-architecture-decisions.md) — Secrets
   Safe governance model and naming convention this script assumes
+- [`docs/05-api-authentication-and-session-mechanics.md`](../docs/05-api-authentication-and-session-mechanics.md) —
+  auth/session mechanics and API gotchas underlying this script
+- [`checklists/api-integration-validation-checklist.md`](../checklists/api-integration-validation-checklist.md) —
+  validate the mechanism itself before trusting it with a real import
 - [`checklists/discovery-and-import-checklist.md`](../checklists/discovery-and-import-checklist.md) —
   pre/post-import review steps, including the >50-item production approval gate
 - [`runbooks/legacy-platform-migration-runbook.md`](../runbooks/legacy-platform-migration-runbook.md) —

@@ -165,7 +165,7 @@ between two tools claiming the same responsibility.
 ## 12. Delegation groups from a legacy PAM tool often contain people, not service accounts
 
 A common misread when migrating from a legacy platform: a delegation group like
-`P_RED_DBAs` contains the **people** who are allowed to retrieve a given service
+`P_PI_DBAs` contains the **people** who are allowed to retrieve a given service
 account's password — not the service account itself. The service account is
 associated with the group as a delegation rule *inside* the legacy tool, not through
 normal AD group membership. When mapping legacy delegation groups to new
@@ -181,6 +181,41 @@ write UTF-16 LE — every character followed by a null byte. PowerShell's defaul
 `Get-Content -Encoding Unicode` and strip null bytes (`-replace '\x00',''`) when
 parsing exports like this, and verify a sample row manually before trusting a bulk
 parse.
+
+## 14. A 401 from the API sign-in endpoint doesn't always mean a bad key
+
+The single most useful discovery from a Secrets Safe API proof-of-concept: an API Key
+Policy registration existing and being active is **not sufficient by itself**. The
+BeyondInsight group containing the `runas` user also needs that API registration
+explicitly assigned/selected in User Management. Skip that step and every sign-in call
+returns HTTP 401 with `Failed to authenticate due to one or more authentication
+rules.` — which reads exactly like a bad or expired key.
+
+Before assuming the key is the problem, check (in this order): the API registration
+is active → the registration is assigned to the correct group → the `runas` user is a
+member of that group → then look at IP/authentication-rule restrictions. The key
+itself is rarely the actual cause once the registration is confirmed active.
+
+## 15. Owner objects need `UserId`/`GroupId`, not a generic `Id`, and require API v3.1
+
+Creating a Secrets Safe secret with an `Owners` collection returns HTTP 400 (`Invalid
+OwnerType`) unless: the request targets **API version 3.1** (`?version=3.1` on the
+create-secret call), `OwnerType` is explicitly set (`User` or `Group`), and each object
+in `Owners` uses `UserId` or `GroupId` — a generic `Id` property is silently rejected.
+JSON property *order* doesn't matter for this endpoint; property *names* and nesting
+do.
+
+## 16. Treat any API key that touched a terminal, screenshot, or transcript as exposed
+
+If a key was ever visible in interactive troubleshooting output — printed to a
+console, pasted into a chat transcript, captured in a screenshot, or left in shell
+history — rotate it and restore any authentication rules (e.g. explicit source-IP
+restrictions) that were relaxed for testing, even if you're confident nobody else saw
+it. This is a "treat it as burned, don't audit whether it's actually burned" policy —
+cheaper than being wrong about who had visibility. Never print `$headers`,
+`$headers.Authorization`, or a `$Session` object during any recorded or shared
+troubleshooting session — all three can carry the Authorization header or session
+token.
 
 ## Open items / still in progress at time of writing
 

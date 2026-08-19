@@ -23,7 +23,7 @@ the thing I wish I'd had on day one of the next implementation.
 
 | Folder | Contents |
 |---|---|
-| [`docs/`](docs/) | Narrative lessons learned, architecture decisions and rationale, key concepts, and a glossary of terms that trip people up |
+| [`docs/`](docs/) | Narrative lessons learned, architecture decisions and rationale, key concepts, API authentication/session mechanics, and a glossary of terms that trip people up |
 | [`checklists/`](checklists/) | Reusable, fill-in-the-blank checklists for each phase of a deployment |
 | [`templates/`](templates/) | Generic reference docs (firewall rules, Smart Rule examples, functional account setup, AD group mapping, ADFS/SAML troubleshooting) |
 | [`scripts/`](scripts/) | Working automation, e.g. [`Import-SecretsSafeCredentials.ps1`](scripts/Import-SecretsSafeCredentials.ps1) — bulk-imports a legacy shared-credentials export into Secrets Safe via the REST API (the web UI's CSV importer only supports personal folders, not team Safes) |
@@ -43,6 +43,7 @@ the thing I wish I'd had on day one of the next implementation.
 - Managed account onboarding (Windows/AD-managed systems): Smart Rules, Smart Groups, Address Groups, Access Policies
 - Secrets Safe for static, non-rotating shared credentials (migrated from a legacy PAM tool)
 - Bulk import into team Safes via the REST API (the UI's CSV import is personal-folder-only)
+- Secrets Safe API authentication/session mechanics, including the most common 401 root cause (API registration not assigned to the RunAs user's group)
 - SAML/SSO via ADFS as IdP, including the most common silent-failure mode (claim type mismatch)
 - Firewall rule planning for appliance ↔ managed system communication
 - Legacy platform decommission / migration runbook

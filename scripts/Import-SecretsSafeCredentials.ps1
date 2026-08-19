@@ -90,7 +90,7 @@
     Platform:   BeyondTrust Password Safe On-Premises v26.2
     Requires:   PowerShell 5.1, Windows (uses System.Windows.Forms for the API key prompt)
 
-    PLACEHOLDERS TO UPDATE: $ReportPath default, $ApplianceBaseUrl if not pwsafe01, $RunAsUser default.
+    PLACEHOLDERS TO UPDATE: $ReportPath default, $ApplianceBaseUrl for your appliance, $RunAsUser default.
 
     SECURITY: Reads plaintext passwords from the input CSV (your responsibility to secure/delete
     that file after import) and transmits them over HTTPS to the appliance. Never logs, echoes,
