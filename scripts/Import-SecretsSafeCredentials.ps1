@@ -85,7 +85,7 @@
     .\Import-SecretsSafeCredentials.ps1 -CsvPath "C:\Temp\shared-creds-export.csv" -SafeName "SS-Network-SharedCreds" -TeamGroupId 57 -ServiceNowTask "TASK12345"
 
 .NOTES
-    Author:     C.Williams, IT Security Admin
+    Author:     C.Williams
     Created:    August 2026
     Platform:   BeyondTrust Password Safe On-Premises v26.2
     Requires:   PowerShell 5.1, Windows (uses System.Windows.Forms for the API key prompt)
