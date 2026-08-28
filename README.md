@@ -31,7 +31,7 @@ the thing I wish I'd had on day one of the next implementation.
 
 ## How to use this
 
-1. Start with [`docs/01-lessons-learned.md`](docs/01-lessons-learned.md) for the narrative — what the project actually looked like phase by phase.
+1. Start with [`docs/lessons-learned/README.md`](docs/lessons-learned/README.md) for the narrative — what the project actually looked like phase by phase.
 2. Read [`docs/04-architecture-decisions.md`](docs/04-architecture-decisions.md) for the design patterns and the reasoning behind them (functional account model, OU structure, the three-tier Smart Rule model, Secrets Safe governance).
 3. Pull the relevant checklist from `checklists/` when you kick off the equivalent phase in your own project.
 4. Copy templates from `templates/` and fill in your environment's specifics locally — **do not commit filled-in versions with real values to a public repo.**
