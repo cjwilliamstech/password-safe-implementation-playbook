@@ -133,7 +133,7 @@
         -PurgeExportAfterRun -ServiceNowTask TASK0012345 -WhatIf
 
 .NOTES
-    Author:     C.Williams, IT Security Admin
+    Author:     C.Williams
     Platform:   BeyondTrust Password Safe On-Premises v26.2
     Requires:   PowerShell 5.1, network reachability to [PS-APPLIANCE] API endpoint
 
