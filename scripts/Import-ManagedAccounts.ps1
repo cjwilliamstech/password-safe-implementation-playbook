@@ -84,11 +84,30 @@
 
 .PARAMETER ApiBaseUrl
     Base URL of the Password Safe public API, e.g.
-    https://[PS-APPLIANCE]/BeyondTrust/api/public/v3
+    https://<appliance>/BeyondTrust/api/public/v3
 
 .PARAMETER FunctionalAccountID
-    ID of the functional account (e.g. s-PWS-AD-Func) used for rotation.
-    Must match PlatformID of the target accounts.
+    Expected ID of the functional account (e.g. <FA-AD-Func>) that should
+    be configured for rotation on the target Managed System/Directory.
+    IMPORTANT: this is NOT a field on the ManagedAccounts create/update API
+    — FunctionalAccountID lives on the parent Managed System/Directory
+    object, not the individual account, and including it in a per-account
+    POST body is silently ignored by the API (confirmed against the actual
+    schema; do not reintroduce it there). This parameter is used ONLY for
+    a pre-flight check (Test-DirectoryRotationConfig, below): the script
+    reads the target Directory's actual configured FunctionalAccountID and
+    AutoManagementFlag before creating any accounts, and stops with a
+    clear error if they don't match what you expect, rather than silently
+    creating accounts that will rotate using the wrong (possibly
+    read-only) functional account.
+    KNOWN LIMITATION: fixing a mismatch here has to be done through the
+    Password Safe console — Managed Systems -> [system] -> Functional
+    Account tab -> Update Functional Account. A direct API
+    PUT Directories/{id} with a corrected FunctionalAccountID was tested
+    and accepted by the server (200, no error) without actually taking
+    effect — the console's "Update Functional Account" action is the only
+    confirmed-working path. This script cannot fix a mismatch for you; it
+    can only detect one and stop before damage is done.
 
 .PARAMETER DefaultChangeFrequencyDays
     Fallback rotation interval in days, used only when a row's
@@ -98,10 +117,11 @@
     Fallback UTC time (HH:mm), used only when a row's ChangeTime column
     is blank. Default 23:30. Remember appliance/API time is UTC — the
     per-row ChangeTime values in the CSV must already be converted from
-    Hawaii local time to UTC before they go in the file.
+    your local time zone to UTC before they go in the file.
 
 .PARAMETER OutputPath
-    Directory for the report CSV. Default C:\PWS-Reports
+    Directory for the report CSV. Default is a "PWS-Reports" folder under the
+    current user's profile directory (%USERPROFILE%).
 
 .PARAMETER SecureExportPath
     Path to the same-day export of current passwords, columns:
@@ -128,14 +148,14 @@
 
 .EXAMPLE
     .\Import-ManagedAccounts.ps1 -CsvPath C:\Temp\Wave1-Accounts.csv `
-        -ApiBaseUrl https://[PS-APPLIANCE]/BeyondTrust/api/public/v3 `
-        -FunctionalAccountID [FUNCTIONAL-ACCOUNT-ID] -SecureExportPath [PATH-TO]\wave1-passwords.csv `
+        -ApiBaseUrl https://<appliance>/BeyondTrust/api/public/v3 `
+        -FunctionalAccountID <id#> -SecureExportPath D:\SecureExports\wave1-passwords.csv `
         -PurgeExportAfterRun -ServiceNowTask TASK0012345 -WhatIf
 
 .NOTES
     Author:     C.Williams
     Platform:   BeyondTrust Password Safe On-Premises v26.2
-    Requires:   PowerShell 5.1, network reachability to [PS-APPLIANCE] API endpoint
+    Requires:   PowerShell 5.1, network reachability to the Password Safe API endpoint
 
     OPERATIONAL SEQUENCE THIS SCRIPT ASSUMES:
     1. Export current passwords from the encrypted folder to
@@ -167,7 +187,7 @@ param(
 
     [string]$DefaultChangeTime = "23:30",
 
-    [string]$OutputPath = "C:\PWS-Reports",
+    [string]$OutputPath = "$env:USERPROFILE\PWS-Reports",
 
     [string]$SecureExportPath,
 
@@ -211,6 +231,63 @@ function Get-DetailedErrorMessage {
         # fall back to the generic message rather than failing the catch itself.
     }
     return $msg
+}
+
+# ---------------------------------------------------------------------------
+# 0b. Pre-flight rotation config check.
+#     Discovered the hard way: a Managed Account created with
+#     AutoManagementFlag=true rotates using whatever FunctionalAccountID is
+#     configured on the parent Directory/Managed System — NOT anything
+#     passed per-account (that field doesn't exist on ManagedAccounts). If
+#     the Directory's configured functional account is wrong (e.g. still
+#     pointing at a read-only bind account), every account created here
+#     will pass creation cleanly and then fail rotation with
+#     "Access is denied" — often hours or days later, on its first
+#     scheduled change, not at creation time. This check catches that
+#     before any accounts are created, instead of after.
+#
+#     LIMITATION: this only verifies the Directory-level functional
+#     account assignment. It cannot detect OU-level AD delegation gaps
+#     (e.g. the correct functional account configured here, but lacking
+#     Reset Password permission on the specific OU an account sits in) —
+#     that's an AD permissions fact invisible to this API. A clean
+#     pre-flight pass here does not guarantee every account will rotate
+#     successfully; it only rules out the Directory-wide misconfiguration.
+# ---------------------------------------------------------------------------
+function Test-DirectoryRotationConfig {
+    param(
+        [string]$BaseUrl,
+        $Session,
+        $Headers,
+        [int]$ManagedSystemID,
+        [int]$ExpectedFunctionalAccountID
+    )
+
+    try {
+        $dir = Invoke-RestMethod -Uri "$BaseUrl/Directories/$ManagedSystemID" `
+            -Method GET -WebSession $Session -Headers $Headers -ErrorAction Stop
+    } catch {
+        Write-Warning "Could not verify Directory rotation config via Directories/$ManagedSystemID`: $(Get-DetailedErrorMessage $_)"
+        Write-Warning "This check assumes ManagedSystemID $ManagedSystemID is a Directory-type system (GET Directories/{id}). If it's an asset/database-type system instead, this check doesn't apply — verify AutoManagementFlag/FunctionalAccountID manually via GET ManagedSystems for that ID."
+        Write-Warning "Proceeding without pre-flight verification — confirm manually before trusting AutoManagementFlag on new accounts."
+        return
+    }
+
+    if (-not $dir.AutoManagementFlag) {
+        throw "Managed System $ManagedSystemID has AutoManagementFlag=false. Every account created here with AutoManagementFlag=true will be rejected (400: 'Managed System must have Auto-Management enabled'). Enable it on the Managed System before running this script."
+    }
+
+    if ($dir.FunctionalAccountID -ne $ExpectedFunctionalAccountID) {
+        throw @"
+Managed System $ManagedSystemID is currently configured with FunctionalAccountID=$($dir.FunctionalAccountID), not the expected $ExpectedFunctionalAccountID.
+Every account created here will attempt rotation using FunctionalAccountID=$($dir.FunctionalAccountID) — if that account lacks write/reset permissions, every one of these accounts will fail rotation with 'Access is denied', potentially not surfacing until their first scheduled change.
+This CANNOT be fixed via API PUT (confirmed: a direct PUT Directories/{id} update is accepted but does not take effect). Fix it via the console instead:
+  Managed Systems -> [this system] -> Functional Account tab -> select the correct account -> Update Functional Account
+Then re-run this script.
+"@
+    }
+
+    Write-Host "Pre-flight check passed: Managed System $ManagedSystemID has AutoManagementFlag=true and FunctionalAccountID=$ExpectedFunctionalAccountID as expected."
 }
 
 function Get-ApiKeySecure {
@@ -346,7 +423,7 @@ function Connect-PasswordSafeApi {
     if (-not $RunAsUser) {
         # $env:USERDOMAIN is the NetBIOS short name (e.g. [NETBIOS-SHORT-NAME]) and
         # does NOT match the FQDN format your API registration expects
-        # (confirmed working pattern: [DOMAIN.NET]\[ADMIN-USER]).
+        # (confirmed working pattern: <fqdn-domain>\<username>).
         # $env:USERDNSDOMAIN gives the FQDN. Fall back to USERDOMAIN only if
         # USERDNSDOMAIN is somehow blank (e.g. non-domain-joined session).
         $domain = if ($env:USERDNSDOMAIN) { $env:USERDNSDOMAIN } else { $env:USERDOMAIN }
@@ -425,6 +502,22 @@ if (-not $conn -or -not $conn.Session) {
     return
 }
 
+# Pre-flight: verify rotation config on every distinct target Managed System
+# BEFORE creating any accounts, so a misconfigured functional account is
+# caught here rather than discovered later via failed scheduled rotations.
+$distinctSystemIds = $rows | Select-Object -ExpandProperty ManagedSystemID -Unique
+try {
+    foreach ($sid in $distinctSystemIds) {
+        Test-DirectoryRotationConfig -BaseUrl $ApiBaseUrl -Session $conn.Session -Headers $conn.Headers `
+            -ManagedSystemID ([int]$sid) -ExpectedFunctionalAccountID $FunctionalAccountID
+    }
+} catch {
+    Write-Error "Pre-flight check failed — stopping before creating any accounts.`n$($_.Exception.Message)"
+    Disconnect-PasswordSafeApi -BaseUrl $ApiBaseUrl -Session $conn.Session -Headers $conn.Headers
+    if ($passwordTable) { $passwordTable.Clear() }
+    return
+}
+
 try {
     foreach ($row in $rows) {
 
@@ -438,7 +531,7 @@ try {
             SeededPassword     = $seedPw
             PasswordValidated  = ""
             ChangeFrequencyDays = $(if ($row.ChangeFrequencyDays) { $row.ChangeFrequencyDays } else { $DefaultChangeFrequencyDays })
-            ChangeTimeUTC      = $(if ($row.ChangeTime) { $row.ChangeTime } else { $DefaultChangeTime })
+            ChangeTimeUTC      = $(if ($row.ChangeTime) { $row.ChangeTime } else { $DefaultChangeTime })  # raw value pending normalization below; updated after parsing
             NextChangeDate     = $row.NextChangeDate  # raw value pending normalization below; updated after parsing
             Status             = ""
             Detail             = ""
@@ -462,12 +555,39 @@ try {
             # when a row genuinely leaves the column blank.
 
             $rowChangeFreqDays = if ($row.ChangeFrequencyDays) { [int]$row.ChangeFrequencyDays } else { $DefaultChangeFrequencyDays }
-            $rowChangeTime     = if ($row.ChangeTime)          { $row.ChangeTime }               else { $DefaultChangeTime }
+            $rowChangeTimeRaw  = if ($row.ChangeTime)          { $row.ChangeTime }               else { $DefaultChangeTime }
             $rowNextChangeDateRaw = $row.NextChangeDate  # optional; blank = let Password Safe pick the first occurrence
 
-            if ($rowChangeTime -notmatch '^\d{2}:\d{2}$') {
-                throw "Invalid ChangeTime '$rowChangeTime' for $accountName — expected 24hr UTC HH:mm."
+            # Accept common time formats as pasted directly from source exports
+            # (8:00, 08:00, 8:00 AM, 20:00, etc.) and normalize to zero-padded
+            # 24hr HH:mm for the API. No manual reformatting needed.
+            # NOTE: this only normalizes FORMAT — it does not know or guess
+            # whether the value you typed is already UTC. If it was converted
+            # from HST by hand, that conversion still has to happen before
+            # it reaches this column; this step just stops a missing leading
+            # zero (e.g. "8:00" vs "08:00") from failing the whole row.
+            $acceptedTimeFormats = @(
+                "HH:mm", "H:mm",
+                "hh:mm tt", "h:mm tt",
+                "HH:mm:ss", "H:mm:ss"
+            )
+            $parsedTime = $null
+            foreach ($fmt in $acceptedTimeFormats) {
+                try {
+                    $parsedTime = [datetime]::ParseExact($rowChangeTimeRaw.Trim(), $fmt,
+                        [System.Globalization.CultureInfo]::InvariantCulture)
+                    break
+                } catch { }
             }
+            if (-not $parsedTime) {
+                $ok = [datetime]::TryParse($rowChangeTimeRaw.Trim(), [ref]$parsedTime)
+                if (-not $ok) { $parsedTime = $null }
+            }
+            if (-not $parsedTime) {
+                throw "Could not parse ChangeTime '$rowChangeTimeRaw' for $accountName — expected a 24hr or 12hr UTC time (e.g. 08:00, 8:00 AM, 20:00)."
+            }
+            $rowChangeTime = $parsedTime.ToString("HH:mm")
+            $resultRow.ChangeTimeUTC = $rowChangeTime
 
             $rowNextChangeDate = ""
             if ($rowNextChangeDateRaw) {
@@ -506,7 +626,12 @@ try {
                 UserPrincipalName                 = $row.UserPrincipalName
                 DomainName                        = $row.DomainName
                 AutoManagementFlag                = $true
-                FunctionalAccountID               = $FunctionalAccountID
+                # NOTE: FunctionalAccountID is deliberately NOT included here.
+                # It is not a valid field on ManagedAccounts create/update —
+                # it lives on the parent Managed System/Directory object
+                # instead, and rotation uses whatever is configured there.
+                # See Test-DirectoryRotationConfig for the pre-flight check
+                # that verifies this before any accounts are created.
                 ChangeFrequencyType               = "xdays"
                 ChangeFrequencyDays               = $rowChangeFreqDays
                 ChangeTime                        = $rowChangeTime
@@ -617,8 +742,8 @@ if ($failedRows) {
 # =============================================================================
 Start-PWSManagedAccountImport `
     -CsvPath "C:\Path\To\Your\TestBatch.csv" `
-    -ApiBaseUrl "https://[PS-APPLIANCE]/BeyondTrust/api/public/v3" `
-    -FunctionalAccountID [FUNCTIONAL-ACCOUNT-ID] `
+    -ApiBaseUrl "https://<appliance>/BeyondTrust/api/public/v3" `
+    -FunctionalAccountID id `
     -SecureExportPath "C:\Path\To\Your\TestBatch-Passwords.csv" `
     -ServiceNowTask "TASK0000000" `
     -WhatIf
