@@ -32,6 +32,7 @@ for rather than scanning chronologically.
 | [12](12-functional-account-entity-type-platform-match.md) | Functional accounts must match the Managed System's Entity Type + Platform exactly |
 | [13](13-workgroup-mismatch-silent-onboarding-blocker.md) | Workgroup mismatch is a silent onboarding blocker |
 | [17](17-laps-accounts-cannot-be-managed-by-password-safe.md) | LAPS-managed local accounts cannot be touched by Password Safe |
+| [28](28-functional-account-routing-and-api-console-discrepancy.md) | A failed test rotation traced through a bad API field assumption, a wrong system-level default, and an API/console UI discrepancy |
 
 ## Legacy migration & data handling
 
@@ -58,6 +59,7 @@ for rather than scanning chronologically.
 | [25](25-whatif-propagation-suppresses-reporting.md) | `-WhatIf` silently suppressed the diagnostic report, not just the risky action |
 | [26](26-surface-api-error-bodies-not-status-codes.md) | Every 4xx error looked identical until the API's own response body was extracted |
 | [27](27-system-level-auto-management-and-linked-account-anchor.md) | A system-level setting blocked every account-level rotation flag, and "linking" needed a deliberate anchor choice |
+| [28](28-functional-account-routing-and-api-console-discrepancy.md) | A field the API silently ignored, and a PUT that returned 200 without actually persisting |
 
 ## Process habits
 
@@ -71,4 +73,4 @@ for rather than scanning chronologically.
 
 *Numbering has a couple of intentional gaps (no lesson 00, jumps between groups) —
 that's from splitting an earlier combined document into individual files and merging
-in a second batch. Not worth renumbering; the content is what matters.*
+in later batches. Not worth renumbering; the content is what matters.*
