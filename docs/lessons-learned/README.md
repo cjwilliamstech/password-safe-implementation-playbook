@@ -41,6 +41,7 @@ for rather than scanning chronologically.
 | [18](18-legacy-delegation-groups-contain-people-not-accounts.md) | Legacy delegation groups often contain people, not service accounts |
 | [19](19-utf16-encoding-in-legacy-exports.md) | Wide-character encoding in legacy exports is a common silent-corruption source |
 | [23](23-bulk-account-creation-password-seeding.md) | Bulk Managed Account creation — seeding the current password to avoid a forced mass rotation |
+| [29](29-csv-column-vs-api-field-name-mismatch.md) | A source CSV column named `Username` is not the API's `AccountName` field — map columns to fields explicitly |
 
 ## SAML / SSO
 
