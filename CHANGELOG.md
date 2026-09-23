@@ -10,14 +10,14 @@ changes.
   CSV column named `Username` is not the API's `AccountName` field; Password Safe
   accepts the unrecognized field with a `200 OK` and silently ignores it, so source
   columns must be mapped to API field names explicitly and case-correctly
-- `docs/reference/api-intergration-overview.md` — REST API fundamentals companion
+- `docs/reference/api-integration-overview.md` — REST API fundamentals companion
   doc explaining how the Password Safe integration actually works (API style, call
   anatomy, auth/session model, resource modeling vs. console UI, error handling,
   versioning)
 
 ### Changed
 - Corrected the "Related reading in this repo" cross-references in
-  `docs/reference/api-intergration-overview.md` to point at the actual lessons
+  `docs/reference/api-integration-overview.md` to point at the actual lessons
   (24, 26, 28, 29), including inline references, and rewrote the descriptions to
   match each lesson's real content
 - `docs/lessons-learned/README.md` updated to list lesson 29 under "Legacy
